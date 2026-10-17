@@ -1,0 +1,1196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#16140f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Breakdowns">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Breakdown Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column. Header = brand, view switch (Breakdowns / Equipment / Downtime), equipment-type tabs, then status tabs on the Breakdowns view. Records open in bottom sheets; a fixed bottom bar starts a walkaround or a breakdown report. Always dark. */
+:root{
+  --bg:#16140f;
+  --panel:#201d16;
+  --panel-2:#29251c;
+  --line:#3a3428;
+  --fg:#ede7d9;
+  --muted:#a59c88;
+  --hivis:#f2b705;
+  --hivis-ink:#1b1504;
+  --down:#e5484d;
+  --limp:#ef8a2b;
+  --wait:#6aa1c9;
+  --ok:#4fb27a;
+  --scrim:rgba(8,7,4,.72);
+  --f-display:"Barlow Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:10px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 130px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.6}
+:focus-visible{outline:2px solid var(--hivis);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto}
+
+/* Header */
+header.top{background:var(--bg);padding-top:14px;margin:0 auto;max-width:720px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:30px;letter-spacing:.04em;text-transform:uppercase;line-height:1}
+.brand h1 span{color:var(--hivis)}
+.brand .who{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.brand .who img{width:22px;height:22px;border-radius:50%}
+.hazard{height:6px;margin:12px 0 0;border-radius:2px;
+  background:repeating-linear-gradient(-45deg,var(--hivis) 0 10px,var(--bg) 10px 20px);opacity:.9}
+.views{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
+.view{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 4px;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.view[aria-selected="true"]{background:var(--hivis);border-color:var(--hivis);color:var(--hivis-ink)}
+.types{display:flex;gap:4px;padding-top:8px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line)}
+.type{flex:1 0 auto;background:transparent;border:0;border-bottom:3px solid transparent;padding:8px 6px 6px;font-family:var(--f-display);font-weight:700;font-size:17px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.type[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--hivis)}
+.type .n{font-family:var(--f-mono);font-size:12px;font-weight:500;letter-spacing:0;background:var(--panel-2);border:1px solid var(--line);border-radius:99px;padding:0 6px;color:var(--muted)}
+.type .n.hot{background:var(--down);border-color:var(--down);color:#fff}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px 0 0}
+.tab{background:transparent;border:1px solid var(--line);border-radius:8px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted)}
+.tab b{font-family:var(--f-display);font-size:22px;line-height:1;color:var(--fg);font-variant-numeric:tabular-nums}
+.tab small{font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.tab[aria-selected="true"]{background:var(--panel-2);border-color:var(--hivis);color:var(--fg)}
+.tab[aria-selected="true"] b{color:var(--hivis)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg.duo{grid-template-columns:1fr 1fr}
+.seg button{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 4px;font-size:14px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{border-color:var(--hivis);color:var(--fg);background:var(--panel-2)}
+
+.banner{margin:14px 0 0;padding:10px 12px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:14px}
+.banner strong{color:var(--fg)}
+
+/* Feed + cards */
+.feed{display:grid;gap:10px;padding-top:14px}
+.card{display:grid;grid-template-columns:6px 1fr;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;text-align:left;padding:0;width:100%}
+.card:hover{border-color:#51493a}
+.stripe{background:var(--sev,var(--line))}
+.card .body{padding:12px 14px;display:grid;gap:6px;min-width:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.sevtag{font-family:var(--f-display);font-weight:700;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--sev);min-width:0}
+.sevtag i{font-style:normal;color:var(--muted);font-weight:600}
+.ago{color:var(--muted);font-size:12px;white-space:nowrap}
+.mach{font-family:var(--f-display);font-weight:600;font-size:22px;line-height:1.1;min-width:0;overflow-wrap:anywhere}
+.unit{font-family:var(--f-mono);font-size:13px;color:var(--hivis);background:rgba(242,183,5,.1);border:1px solid rgba(242,183,5,.3);padding:1px 6px;border-radius:4px;margin-left:6px;white-space:nowrap;vertical-align:3px}
+.desc{color:#d2cbbb;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted);font-size:13px;align-items:center}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.person{display:inline-flex;align-items:center;gap:6px}
+.person img{width:18px;height:18px;border-radius:50%}
+.thumbs{display:flex;gap:6px}
+.thumbs img{width:56px;height:56px;object-fit:cover;border-radius:6px;background:var(--panel-2);border:1px solid var(--line)}
+.thumbs .more{width:56px;height:56px;border-radius:6px;background:var(--panel-2);display:grid;place-items:center;color:var(--muted);font-family:var(--f-mono);font-size:13px}
+.pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.pill.open{color:var(--muted)} .pill.shop{color:var(--hivis)} .pill.parts{color:var(--limp)} .pill.fixed{color:var(--ok)} .pill.late{color:var(--down)}
+.late-t{color:#ff9a9d}
+
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:28px 20px;text-align:center;color:var(--muted);display:grid;gap:8px;justify-items:center}
+.empty h2{margin:0;font-family:var(--f-display);font-size:24px;color:var(--fg);text-wrap:balance}
+.empty p{margin:0;max-width:44ch}
+
+/* Equipment view */
+.eq-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.eq-head p{margin:0;color:var(--muted);font-size:14px}
+.eq-head p b{color:var(--fg);font-weight:600}
+.btn.sm{padding:8px 14px;font-size:14px}
+
+/* Downtime view */
+.dt-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;gap:2px;min-width:0}
+.stat b{font-family:var(--f-display);font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.stat b.red{color:var(--down)}
+.stat small{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.dt-list{display:grid;gap:14px}
+.dt-row{display:grid;gap:6px;background:transparent;border:0;padding:0;text-align:left;width:100%}
+.dt-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.dt-top b{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.dt-top .v{font-family:var(--f-mono);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dt-bar{height:10px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+.dt-bar i{display:block;height:100%;background:var(--down);border-radius:3px;min-width:3px}
+.dt-sub{font-size:12px;color:var(--muted)}
+.note{color:var(--muted);font-size:13px;margin:0}
+
+/* Bottom bar */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;
+  padding:14px max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  background:linear-gradient(to top,var(--bg) 65%,rgba(22,20,15,0))}
+.bar-in{max-width:720px;margin:0 auto;display:grid;grid-template-columns:1fr 1.45fr;gap:8px}
+.bar button{border-radius:12px;padding:14px 8px;font-family:var(--f-display);font-weight:700;font-size:19px;letter-spacing:.05em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.45)}
+.bar .walk{background:var(--panel-2);border:1px solid var(--hivis);color:var(--hivis)}
+.bar .rep{background:var(--hivis);border:0;color:var(--hivis-ink)}
+.bar svg{width:20px;height:20px;flex:none}
+@media (max-width:420px){.bar svg{display:none}.bar button{font-size:17px}}
+
+/* Sheets */
+.sheet{position:fixed;inset:0;z-index:20;background:var(--scrim);display:flex;justify-content:center;align-items:flex-end;
+  padding-top:calc(24px + env(safe-area-inset-top,0px))}
+.panel{background:var(--bg);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;width:100%;max-width:720px;max-height:100%;overflow:auto;
+  padding:0 max(16px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.panel-head{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0 12px;border-bottom:1px solid var(--line);z-index:1}
+.panel-head h2{margin:0;font-family:var(--f-display);font-size:26px;text-transform:uppercase;letter-spacing:.04em;line-height:1.05;min-width:0;overflow-wrap:anywhere}
+.x{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;width:40px;height:40px;flex:none;display:grid;place-items:center}
+.x svg{width:18px;height:18px}
+
+/* Forms */
+form{display:grid;gap:18px;padding-top:16px}
+.field{display:grid;gap:6px;min-width:0}
+.field>label,.legend{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field .hint{font-size:12px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:440px){.two{grid-template-columns:1fr}}
+input[type=text],input[type=number],input[type=date],select,textarea{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:16px}
+select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:36px}
+input:focus,textarea:focus,select:focus{border-color:var(--hivis);outline:none}
+textarea{min-height:96px;resize:vertical}
+.mono-in{font-family:var(--f-mono)!important}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:8px 13px;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--hivis);color:var(--hivis-ink);border-color:var(--hivis);font-weight:600}
+.sevs{display:grid;gap:8px}
+.sev{display:grid;grid-template-columns:6px 1fr;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;text-align:left;padding:0}
+.sev span:first-child{background:var(--c)}
+.sev span:last-child{padding:10px 12px;display:grid}
+.sev b{font-family:var(--f-display);font-size:19px;letter-spacing:.05em;text-transform:uppercase;color:var(--c)}
+.sev small{color:var(--muted);font-size:13px}
+.sev[aria-pressed="true"]{border-color:var(--c);background:var(--panel-2)}
+.photo-pick{display:flex;flex-wrap:wrap;gap:8px}
+.photo-pick .ph{position:relative;width:76px;height:76px}
+.photo-pick .ph img{width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.photo-pick .ph button{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--panel-2);display:grid;place-items:center;padding:0}
+.photo-pick .ph button svg{width:12px;height:12px}
+.addph{width:76px;height:76px;border:1px dashed #5a5140;border-radius:8px;display:grid;place-items:center;color:var(--muted);background:transparent;font-size:12px;text-align:center;line-height:1.2;padding:4px;cursor:pointer}
+.addph svg{width:24px;height:24px;display:block;margin:0 auto 2px}
+.btn{border:0;border-radius:10px;padding:14px 18px;font-weight:600;font-size:16px}
+.btn.primary{background:var(--hivis);color:var(--hivis-ink);font-family:var(--f-display);font-size:21px;letter-spacing:.06em;text-transform:uppercase}
+.btn.primary:disabled{opacity:.55;cursor:progress}
+.btn.ghost{background:var(--panel);border:1px solid var(--line)}
+.err{color:#ff9a9d;font-size:14px;margin:0}
+
+/* Walkaround checklist */
+.checks{display:grid;gap:6px}
+.chk{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 8px 8px 12px;display:grid;gap:8px}
+.chk.failed{border-color:var(--down);background:#2a1a17}
+.chk-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.chk-row span{min-width:0}
+.okfail{display:flex;gap:4px;flex:none}
+.okfail button{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 12px;font-size:13px;font-weight:700;color:var(--muted);min-width:52px}
+.okfail button.ok[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#0d1a12}
+.okfail button.fail[aria-pressed="true"]{background:var(--down);border-color:var(--down);color:#fff}
+.chk input{padding:10px;font-size:15px}
+
+/* Detail + unit sheet */
+.d-sev{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:14px 0 4px}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;padding-top:12px}
+.gallery button{padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel-2);aspect-ratio:1;max-width:100%}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+dl.facts{display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;margin:16px 0 0;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+dl.facts dt{color:var(--muted);font-size:13px}
+dl.facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.d-desc{margin:16px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.sec-h{font-family:var(--f-display);font-size:18px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:24px 0 10px}
+.status-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.status-btns button{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 6px;font-size:14px;font-weight:600;color:var(--muted)}
+.status-btns button[aria-pressed="true"]{color:var(--bg);border-color:transparent}
+.status-btns button[data-s="open"][aria-pressed="true"]{background:var(--muted)}
+.status-btns button[data-s="shop"][aria-pressed="true"]{background:var(--hivis)}
+.status-btns button[data-s="parts"][aria-pressed="true"]{background:var(--limp)}
+.status-btns button[data-s="fixed"][aria-pressed="true"]{background:var(--ok)}
+.mechs,.partsf{display:grid;gap:8px;margin-top:12px}
+.partsf{padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.partsf input{background:var(--bg)}
+.log{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.log li{display:grid;grid-template-columns:24px 1fr;gap:10px}
+.log li img{width:24px;height:24px;border-radius:50%}
+.log .lt{font-size:13px;color:var(--muted)}
+.log .lt b{color:var(--fg);font-weight:600}
+.log p{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.note-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}
+.note-row textarea{min-height:48px}
+.danger{margin-top:28px;background:transparent;border:1px solid #5b2a2b;color:#ff9a9d;border-radius:8px;padding:10px 14px;font-size:14px}
+.danger.armed{background:var(--down);color:#fff;border-color:var(--down)}
+.two-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.hist{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.hist .it{width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--sev,var(--line));border-radius:8px;padding:10px 12px;display:grid;gap:2px}
+.hist .t{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.hist .t b{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.hist .s{font-size:13px;color:var(--muted)}
+.linkbtn{background:none;border:0;padding:0;color:var(--hivis);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+
+/* Lightbox */
+.lightbox{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.92);display:grid;place-items:center;
+  padding:calc(56px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+.lightbox .x{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px))}
+
+/* Text the mechanic + settings */
+.gear{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.gear svg{width:15px;height:15px}
+.sent-top{display:grid;gap:6px;padding:18px 0 4px}
+.sent-top .ok{font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--ok)}
+.sent-top p{margin:0;color:var(--muted)}
+.callcard{display:grid;gap:12px;margin-top:14px;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.callcard .who-m{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.callcard .who-m b{font-family:var(--f-display);font-size:20px;letter-spacing:.03em}
+.phone{font-family:var(--f-mono);font-size:18px;color:var(--hivis);user-select:all;font-variant-numeric:tabular-nums}
+.msg{width:100%;min-height:120px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:15px;resize:vertical}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acts .full{grid-column:1/-1}
+.btn.sms{background:var(--hivis);color:var(--hivis-ink);text-align:center;text-decoration:none;font-family:var(--f-display);font-size:20px;letter-spacing:.06em;text-transform:uppercase}
+.small{font-size:12px;color:var(--muted);margin:0}
+.textbtn{margin-top:14px;width:100%}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--panel-2);border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (prefers-reduced-motion:no-preference){.panel{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+.gate-note{font-size:14px;color:var(--muted);margin:0}
+.whobtn{background:none;border:0;padding:0;color:var(--muted);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+html{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <h1>Breakdown <span>Board</span></h1>
+    <div class="who" id="who"></div>
+  </div>
+  <div class="hazard" aria-hidden="true"></div>
+  <div class="views" role="tablist" aria-label="Page" id="views"></div>
+  <div class="types" role="tablist" aria-label="Equipment type" id="types"></div>
+  <div class="tabs" role="tablist" aria-label="Report status" id="tabs">
+    <button class="tab" role="tab" data-tab="open"><b id="c-open">0</b><small>Open</small></button>
+    <button class="tab" role="tab" data-tab="shop"><b id="c-shop">0</b><small>Working</small></button>
+    <button class="tab" role="tab" data-tab="parts"><b id="c-parts">0</b><small>Parts</small></button>
+    <button class="tab" role="tab" data-tab="fixed"><b id="c-fixed">0</b><small>Fixed</small></button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="banner" class="banner" hidden></div>
+  <div id="feed" class="feed" aria-live="polite">
+    <div class="empty"><h2>Loading the board…</h2></div>
+  </div>
+</main>
+
+<div class="bar" id="bar">
+  <div class="bar-in">
+    <button class="walk" id="walkBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9zM7 5.5H5v15h14v-15h-2"/><path d="m9 13 2 2 4-4"/></svg>
+      Walkaround
+    </button>
+    <button class="rep" id="fab" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17v.5"/></svg>
+      Report breakdown
+    </button>
+  </div>
+</div>
+
+<!-- Unit history sits lowest so forms and reports opened from it stack on top -->
+<div id="unitSheet" class="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="uTitle" id="unitPanel"></div>
+</div>
+
+<div id="formSheet" class="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="fTitle">
+    <div class="panel-head"><h2 id="fTitle">Report a breakdown</h2><button class="x" type="button" data-close aria-label="Close"></button></div>
+    <form id="form" novalidate>
+      <div class="field"><span class="legend" id="l-type">What broke down?</span><div class="seg" id="f-type" role="group" aria-labelledby="l-type"></div></div>
+      <div class="field" id="f-pickwrap"><label for="f-pick" id="l-pick">Which one?</label><select id="f-pick"></select></div>
+      <div class="two" id="f-newunit">
+        <div class="field"><label for="f-machine" id="l-machine">Machine</label><input type="text" id="f-machine" placeholder="e.g. CAT 336 excavator" autocomplete="off"></div>
+        <div class="field"><label for="f-unit">Unit / fleet #</label><input type="text" id="f-unit" class="mono-in" placeholder="EX-14" autocomplete="off"></div>
+      </div>
+      <div class="two">
+        <div class="field"><span class="legend" id="l-site">Job site</span><div class="seg duo" id="f-site" role="group" aria-labelledby="l-site"></div></div>
+        <div class="field"><label for="f-hours" id="l-hours">Hour meter</label><input type="number" id="f-hours" class="mono-in" inputmode="decimal" placeholder="4812" min="0" step="0.1"><span class="hint" id="h-hours">Engine hours shown on the gauge</span></div>
+      </div>
+      <div class="field" id="f-addrwrap" hidden><label for="f-addr">Job address</label><input type="text" id="f-addr" list="addrs" placeholder="e.g. 15300 Broadmoor St, Overland Park, KS" autocomplete="street-address"><datalist id="addrs"></datalist><span class="hint">So the mechanic can find you. They can copy it or open it in Maps.</span></div>
+      <div class="field"><span class="legend" id="l-cat">Problem area · pick all that apply</span><div class="chips" id="f-cat" role="group" aria-labelledby="l-cat"></div></div>
+      <div class="field"><span class="legend" id="l-sev">How bad is it?</span><div class="sevs" id="f-sev" role="group" aria-labelledby="l-sev"></div></div>
+      <div class="field"><label for="f-desc">What's going on</label><textarea id="f-desc" placeholder="What you saw, heard or smelled. When it started. Any codes on the display."></textarea></div>
+      <div class="field"><span class="legend">Photos</span>
+        <div class="photo-pick" id="f-photos">
+          <label class="addph" for="f-file"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Add photo</span></label>
+        </div>
+        <input type="file" id="f-file" accept="image/*" multiple class="sr">
+        <span class="hint" id="photoHint">Shoot the leak, the code on the screen, the broken part.</span>
+      </div>
+      <p class="err" id="f-err" hidden></p>
+      <button class="btn primary" id="f-submit" type="submit">Send to mechanic</button>
+    </form>
+  </div>
+</div>
+
+<div id="walkSheet" class="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="wTitle">
+    <div class="panel-head"><h2 id="wTitle">Daily walkaround</h2><button class="x" type="button" data-close aria-label="Close"></button></div>
+    <form id="wform" novalidate>
+      <div class="field"><span class="legend" id="l-wtype">Walking around a</span><div class="seg" id="w-type" role="group" aria-labelledby="l-wtype"></div></div>
+      <div class="field" id="w-pickwrap"><label for="w-pick">Which one?</label><select id="w-pick"></select></div>
+      <div class="two" id="w-newunit">
+        <div class="field"><label for="w-machine" id="l-wmachine">Machine</label><input type="text" id="w-machine" placeholder="e.g. CAT 336 excavator" autocomplete="off"></div>
+        <div class="field"><label for="w-unit">Unit / fleet #</label><input type="text" id="w-unit" class="mono-in" placeholder="EX-14" autocomplete="off"></div>
+      </div>
+      <div class="field"><label for="w-read" id="l-wread">Hour meter</label><input type="number" id="w-read" class="mono-in" inputmode="decimal" min="0" step="0.1"></div>
+      <div class="field"><span class="legend" id="l-checks">Checklist · tap Fail on anything that isn't right</span><div class="checks" id="w-checks" role="group" aria-labelledby="l-checks"></div></div>
+      <div class="field" id="w-sevwrap" hidden><span class="legend" id="l-wsev">Can it run?</span><div class="sevs" id="w-sev" role="group" aria-labelledby="l-wsev"></div></div>
+      <p class="err" id="w-err" hidden></p>
+      <button class="btn primary" id="w-submit" type="submit">Finish walkaround</button>
+    </form>
+  </div>
+</div>
+
+<div id="addSheet" class="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="aTitle">
+    <div class="panel-head"><h2 id="aTitle">Add to equipment list</h2><button class="x" type="button" data-close aria-label="Close"></button></div>
+    <form id="aform" novalidate>
+      <div class="field"><span class="legend" id="l-atype">Type</span><div class="seg" id="a-type" role="group" aria-labelledby="l-atype"></div></div>
+      <div class="two">
+        <div class="field"><label for="a-name" id="l-aname">Make &amp; model</label><input type="text" id="a-name" autocomplete="off"></div>
+        <div class="field"><label for="a-unit">Unit / fleet #</label><input type="text" id="a-unit" class="mono-in" autocomplete="off"></div>
+      </div>
+      <div class="field"><label for="a-read" id="l-aread">Hour meter (optional)</label><input type="number" id="a-read" class="mono-in" inputmode="decimal" min="0" step="0.1"></div>
+      <p class="err" id="a-err" hidden></p>
+      <button class="btn primary" id="a-submit" type="submit">Add to list</button>
+    </form>
+  </div>
+</div>
+
+<div id="detailSheet" class="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="dTitle" id="detailPanel"></div>
+</div>
+
+<div id="textSheet" class="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="tTitle" id="textPanel"></div>
+</div>
+
+<div id="setSheet" class="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+    <div class="panel-head"><h2 id="sTitle">Shop settings</h2><button class="x" type="button" data-close aria-label="Close"></button></div>
+    <form id="setForm" novalidate>
+      <p class="small" style="font-size:14px">After someone sends a report, the board shows this number with a ready-to-send text. Everyone with the crew code can see it.</p>
+      <div class="field"><label for="s-name">Name</label><input type="text" id="s-name" placeholder="e.g. Shop / Mike" autocomplete="off"></div>
+      <div class="field"><label for="s-phone">Cell number</label><input type="text" id="s-phone" class="mono-in" inputmode="tel" placeholder="816-555-0142" autocomplete="off"></div>
+      <div class="field"><label for="s-mechs">Mechanics</label><input type="text" id="s-mechs" placeholder="Colton, Brett, Dillon" autocomplete="off"><span class="hint">Separate names with commas. A mechanic taps their name when they start on a report.</span></div>
+      <div class="field"><label for="s-crew">New crew code (optional)</label><input type="text" id="s-crew" class="mono-in" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Leave blank to keep the current one"><span class="hint">Everyone will need to type the new code. Use this if someone leaves.</span></div>
+      <p class="err" id="s-err" hidden></p>
+      <button class="btn primary" type="submit" id="s-save">Save settings</button>
+    </form>
+  </div>
+</div>
+
+<div id="gate" class="sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="gTitle">
+    <div class="panel-head"><h2 id="gTitle">Open the board</h2></div>
+    <form id="gform" novalidate>
+      <p class="gate-note">Ask the shop for the crew code. You only enter it once on this phone.</p>
+      <div class="field"><label for="g-name">Your name</label><input type="text" id="g-name" autocomplete="name" placeholder="e.g. Nick M."></div>
+      <div class="field"><label for="g-code">Crew code</label><input type="text" id="g-code" class="mono-in" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
+      <p class="err" id="g-err" hidden></p>
+      <button class="btn primary" type="submit" id="g-go">Open the board</button>
+    </form>
+  </div>
+</div>
+
+<div id="lightbox" class="lightbox" hidden><button class="x" type="button" aria-label="Close photo"></button><img alt=""></div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+(() => {
+const TYPES = {
+  machine:{label:"Machines",one:"Machine",ph:"e.g. CAT 336 excavator",unit:"EX-14",meter:"hours",
+    cats:["Engine","Hydraulics","Tracks / undercarriage","Electrical","Drill / attachment","Tires","Leak","Cab / controls","Other"],
+    checks:["Engine oil","Hydraulic oil","Coolant","Fuel","Leaks under machine","Tracks / undercarriage","Bucket, teeth & attachment","Hoses & cylinders","Lights & backup alarm","Seat belt","Fire extinguisher","Gauges & warning lights"]},
+  truck:{label:"Fleet trucks",one:"Fleet truck",ph:"e.g. Ford F-550 dump",unit:"T-07",meter:"miles",
+    cats:["Engine","Brakes","Tires","Electrical / lights","Transmission","Leak","Body / bed","Cab / controls","Other"],
+    checks:["Tires & wheels","Brakes","Lights & signals","Mirrors & glass","Wipers","Engine oil & coolant","Leaks","Horn","Seat belt","Fire extinguisher & triangles","Bed, body & hitch"]},
+  trailer:{label:"Tractor trailers",one:"Tractor trailer",ph:"e.g. Peterbilt 389 + lowboy",unit:"TT-03",meter:"miles",
+    cats:["Engine","Brakes / air","Tires","Lights","Fifth wheel / hitch","Suspension","Leak","Deck / ramps","Other"],
+    checks:["Tractor tires & wheels","Trailer tires & wheels","Air lines & glad hands","Brakes & air pressure","Lights & reflectors","Fifth wheel & kingpin","Chains & binders","Deck & ramps","Suspension","Mirrors & glass","Fire extinguisher & triangles"]}
+};
+const SEV = {
+  down:{label:"Down",sub:"Tagged out, can't run",color:"var(--down)",rank:0},
+  limp:{label:"Needs attention",sub:"Still running, needs a look soon",color:"var(--limp)",rank:1},
+  wait:{label:"Can wait",sub:"Fix at next service",color:"var(--wait)",rank:2}
+};
+const STATE = {
+  down:{label:"Down",color:"var(--down)",rank:0},
+  limp:{label:"Needs attention",color:"var(--limp)",rank:1},
+  wait:{label:"Open issue",color:"var(--wait)",rank:2},
+  ok:{label:"Running",color:"var(--ok)",rank:3}
+};
+const STATUS = {open:"Open",shop:"Being worked",parts:"Waiting on parts",fixed:"Fixed"};
+const VIEWS = {board:"Breakdowns",equipment:"Equipment"};
+const X_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+const DAY=86400000;
+
+let me=null, isEditor=false, canWrite=true;
+let reports=[], units=[], inspections=[], contact={name:"",phone:"",mechanics:[]};
+
+/* ---------- Supabase ---------- */
+const SB_URL="https://dvokcdfacedkgakpxryw.supabase.co";
+const SB_KEY="sb_publishable_KnoVKERjOPUamM-nVrhozg_9JEG4lJc";
+let crewCode="";
+async function sb(path,opts){
+  opts=opts||{};
+  const r=await fetch(SB_URL+path,{...opts,headers:Object.assign({apikey:SB_KEY,"x-crew-code":crewCode},opts.headers||{})});
+  if(!r.ok){ const e=new Error("Request failed"); e.status=r.status; e.code=(r.status===401||r.status===403)?"invalid_argument":"unavailable"; try{ e.detail=await r.text(); }catch(_){} throw e; }
+  const t=await r.text(); return t?JSON.parse(t):null;
+}
+const JSONH={"Content-Type":"application/json"};
+function denied(){ const e=new Error("Not allowed"); e.code="invalid_argument"; return e; }
+const db={
+  collection(c){ return { async add(obj){ const rows=await sb("/rest/v1/"+c,{method:"POST",headers:{...JSONH,Prefer:"return=representation"},body:JSON.stringify({data:obj})}); refreshSoon(); return {id:rows[0].id}; } }; },
+  doc(p){ const [c,id]=p.split("/"); const q="/rest/v1/"+c+"?id=eq."+encodeURIComponent(id); return {
+    async update(f){ const cur=await sb(q+"&select=data"); if(!cur||!cur.length) throw denied(); const data={...cur[0].data,...f};
+      const rows=await sb(q,{method:"PATCH",headers:{...JSONH,Prefer:"return=representation"},body:JSON.stringify({data})}); if(!rows||!rows.length) throw denied(); refreshSoon(); },
+    async delete(){ const rows=await sb(q,{method:"DELETE",headers:{Prefer:"return=representation"}}); if(!rows||!rows.length) throw denied(); refreshSoon(); },
+    async set(obj){ await sb("/rest/v1/"+c,{method:"POST",headers:{...JSONH,Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({id,data:obj})}); refreshSoon(); }
+  }; }
+};
+const assets={
+  async upload(blob){
+    const path=new Date().toISOString().slice(0,10)+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,8)+".jpg";
+    const r=await fetch(SB_URL+"/storage/v1/object/photos/"+path,{method:"POST",headers:{apikey:SB_KEY,"Content-Type":blob.type||"image/jpeg"},body:blob});
+    if(!r.ok){ const e=new Error("upload"); e.code=r.status===413?"too_large":r.status===415?"unsupported_type":"upstream_error"; throw e; }
+    return {id:path};
+  },
+  async delete(){}
+};
+function photoUrl(id){ return SB_URL+"/storage/v1/object/public/photos/"+id; }
+async function accessLevel(){ return await sb("/rest/v1/rpc/access_level",{method:"POST",headers:JSONH,body:"{}"}); }
+let loading=false, refreshT=null, lastOk=0;
+function refreshSoon(){ clearTimeout(refreshT); refreshT=setTimeout(loadAll,200); }
+async function loadAll(){
+  if(loading||!crewCode) return; loading=true;
+  try{
+    const [r,u,i,c]=await Promise.all([
+      sb("/rest/v1/reports?select=id,data&order=created_at.desc&limit=1000"),
+      sb("/rest/v1/units?select=id,data&limit=1000"),
+      sb("/rest/v1/inspections?select=id,data&order=created_at.desc&limit=1000"),
+      sb("/rest/v1/config?select=id,data&id=eq.notify")]);
+    reports=r.map(x=>({...x.data,id:x.id}));
+    units=u.map(x=>({...x.data,id:x.id})).filter(x=>TYPES[x.type]);
+    inspections=i.map(x=>({...x.data,id:x.id}));
+    const d=(c&&c[0]&&c[0].data)||{};
+    contact={name:d.name||"",phone:d.phone||"",mechanics:Array.isArray(d.mechanics)?d.mechanics.filter(x=>typeof x==="string"&&x.trim()).slice(0,20):[]};
+    lastOk=Date.now(); banner(null); render();
+  }catch(e){
+    banner([h("strong",{},"Can't reach the board. "),"Check your signal. It'll catch up on its own."]);
+  }finally{ loading=false; }
+}
+let eqType="machine", view="board", tab="open", openId=null, unitOpen=null, dtMonth=0;
+const $ = s => document.querySelector(s);
+
+/* ---------- Helpers ---------- */
+function h(tag, attrs, ...kids){
+  const el=document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs||{})){
+    if(v==null||v===false) continue;
+    if(k==="class") el.className=v;
+    else if(k==="style") el.style.cssText=v;
+    else if(k.startsWith("on")) el.addEventListener(k.slice(2),v);
+    else el.setAttribute(k,v===true?"":v);
+  }
+  for(const k of kids.flat()){ if(k==null||k===false) continue; el.append(k.nodeType?k:document.createTextNode(String(k))); }
+  return el;
+}
+function ago(iso){
+  const s=(Date.now()-new Date(iso).getTime())/1000;
+  if(!isFinite(s)) return "";
+  if(s<60) return "just now";
+  if(s<3600) return Math.floor(s/60)+"m ago";
+  if(s<86400) return Math.floor(s/3600)+"h ago";
+  if(s<86400*7) return Math.floor(s/86400)+"d ago";
+  return new Date(iso).toLocaleDateString(undefined,{month:"short",day:"numeric"});
+}
+function stamp(iso){ const d=new Date(iso); return isNaN(d)?"":d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}); }
+function pad(n){ return String(n).padStart(2,"0"); }
+function todayYMD(){ const t=new Date(); return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(t.getDate()); }
+function fmtYMD(s){ const d=new Date(s+"T12:00:00"); return isNaN(d)?"":d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
+function isLate(p){ return p&&p.eta&&p.eta<todayYMD(); }
+function sameDay(iso){ const a=new Date(iso), b=new Date(); return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function fmtMeter(type,v){ if(v===""||v==null) return ""; const n=Number(v); if(!isFinite(n)) return ""; return type==="machine"?n.toLocaleString(undefined,{maximumFractionDigits:1})+" hrs":Math.round(n).toLocaleString()+" mi"; }
+function typeOf(r){ return TYPES[r.type]?r.type:"machine"; }
+function meter(r){ const t=typeOf(r); return fmtMeter(t,t==="machine"?r.hours:r.miles); }
+function fmtDur(ms){ const d=ms/DAY; if(d<1){ const hr=Math.round(ms/3600000); return hr+" hr"+(hr===1?"":"s"); } return d.toFixed(1)+" days"; }
+function name(id){ return id||"Someone"; }
+function avatar(id){ return null; }
+function personEl(id){ const a=avatar(id); return h("span",{class:"person"}, a?h("img",{src:a,alt:""}):null, name(id)); }
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600); }
+function banner(kids){ const b=$("#banner"); if(!kids){b.hidden=true;return;} b.replaceChildren(...kids); b.hidden=false; }
+function store(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch(e){} }
+function load(k){ try{ return localStorage.getItem(k)||""; }catch(e){ return ""; } }
+function xBtns(root){ root.querySelectorAll("button.x").forEach(b=>{ if(!b.firstChild) b.innerHTML=X_ICON; }); }
+
+/* ---------- Units ---------- */
+function unitById(id){ return units.find(u=>u.id===id); }
+function unitLabel(u){ return u.name||"Unnamed"; }
+function unitFor(r){
+  if(r.unitId) return unitById(r.unitId)||null;
+  const t=typeOf(r), no=String(r.unit||"").trim().toLowerCase();
+  return no?units.find(u=>u.type===t&&String(u.unit||"").trim().toLowerCase()===no)||null:null;
+}
+function reportsFor(u){ return reports.filter(r=>{ const x=unitFor(r); return x&&x.id===u.id; }); }
+function inspFor(u){ return inspections.filter(i=>i.unitId===u.id); }
+function unitState(u){
+  const act=reportsFor(u).filter(r=>(r.status||"open")!=="fixed");
+  if(act.some(r=>r.severity==="down")) return "down";
+  if(act.some(r=>r.severity==="limp")) return "limp";
+  return act.length?"wait":"ok";
+}
+function sortUnits(list){ return list.slice().sort((a,b)=>String(a.unit||"").localeCompare(String(b.unit||""),undefined,{numeric:true})||unitLabel(a).localeCompare(unitLabel(b))); }
+function walkText(u){
+  const last=inspFor(u)[0];
+  if(!last) return "No walkaround yet";
+  const nf=(last.fails||[]).length;
+  return (sameDay(last.at)?"Walked around today":"Last walkaround "+ago(last.at))+(nf?" · "+nf+" failed":"");
+}
+/* Down time = from when a Down report is sent until it is marked fixed, merged per unit, clipped to [start,end). */
+function downMs(list,start,end){
+  const iv=[];
+  for(const r of list){
+    if(r.severity!=="down") continue;
+    const s=Date.parse(r.createdAt); if(!isFinite(s)) continue;
+    const e=(r.status||"open")==="fixed"?Date.parse(r.fixedAt||r.updatedAt||r.createdAt):Date.now();
+    const a=Math.max(s,start), b=Math.min(e,end);
+    if(b>a) iv.push([a,b]);
+  }
+  iv.sort((x,y)=>x[0]-y[0]);
+  let tot=0, cs=null, ce=null;
+  for(const [a,b] of iv){ if(cs===null){cs=a;ce=b;} else if(a<=ce){ ce=Math.max(ce,b); } else { tot+=ce-cs; cs=a; ce=b; } }
+  if(cs!==null) tot+=ce-cs;
+  return tot;
+}
+function monthRange(back){
+  const d=new Date(); const start=new Date(d.getFullYear(),d.getMonth()-back,1).getTime();
+  const endM=new Date(d.getFullYear(),d.getMonth()-back+1,1).getTime();
+  return {start,end:Math.min(endM,Date.now()),endM,label:new Date(start).toLocaleDateString(undefined,{month:"long"})};
+}
+
+/* ---------- Render ---------- */
+let renderSeq=0;
+async function render(){
+  const seq=++renderSeq;
+  renderViews(); renderTypes();
+  $("#tabs").hidden=view!=="board";
+  if(view==="equipment") renderEquipment(); else renderBoard();
+  if(openId) renderDetail();
+  if(unitOpen&&!unitEdit) renderUnit();
+}
+function renderViews(){
+  $("#views").replaceChildren(...Object.entries(VIEWS).map(([k,l])=>h("button",{type:"button",class:"view",role:"tab","aria-selected":String(view===k),onclick:()=>{ view=k; store("bb-view",k); render(); }},l)));
+}
+function renderTypes(){
+  $("#types").replaceChildren(...Object.entries(TYPES).map(([k,t])=>{
+    const active=reports.filter(r=>typeOf(r)===k&&(r.status||"open")!=="fixed");
+    const down=active.some(r=>r.severity==="down");
+    return h("button",{type:"button",class:"type",role:"tab","aria-selected":String(eqType===k),onclick:()=>{eqType=k;store("bb-type",k);render();}},t.label,active.length?h("span",{class:"n"+(down?" hot":""),"aria-label":active.length+" not fixed"},active.length):null);
+  }));
+}
+function emptyBox(t,p){ return h("div",{class:"empty"},h("h2",{},t),h("p",{},p)); }
+
+/* Breakdowns */
+function sorted(list){
+  if(tab==="open") return list.slice().sort((a,b)=>(SEV[a.severity]?.rank??3)-(SEV[b.severity]?.rank??3)||String(b.createdAt).localeCompare(String(a.createdAt)));
+  if(tab==="parts") return list.slice().sort((a,b)=>String(a.parts?.eta||"9999").localeCompare(String(b.parts?.eta||"9999")));
+  return list.slice().sort((a,b)=>String(b.updatedAt||b.createdAt).localeCompare(String(a.updatedAt||a.createdAt)));
+}
+function renderBoard(){
+  const mine=reports.filter(r=>typeOf(r)===eqType);
+  for(const s of Object.keys(STATUS)) $("#c-"+s).textContent=mine.filter(r=>(r.status||"open")===s).length;
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",String(t.dataset.tab===tab)));
+  const list=sorted(mine.filter(r=>(r.status||"open")===tab));
+  const feed=$("#feed");
+  if(!list.length){
+    const m={
+      open:["Nothing broken down","When a "+TYPES[eqType].one.toLowerCase()+" goes down or starts acting up, tap Report breakdown, add a few photos, and it lands here for the mechanic."],
+      shop:["Nothing in the shop","Reports a mechanic has taken show up here with their name."],
+      parts:["Nothing waiting on parts","When a mechanic orders a part, the report waits here with the expected date."],
+      fixed:["No fixes logged yet","Once a report is marked fixed, it moves here with the mechanic's notes."]
+    }[tab];
+    feed.replaceChildren(emptyBox(m[0],m[1]));
+  } else feed.replaceChildren(...list.map(card));
+}
+function statusPill(r){
+  const st=r.status||"open";
+  if(st==="parts"){ const p=r.parts||{}; const late=isLate(p); return h("span",{class:"pill "+(late?"late":"parts")},p.eta?(late?"Late · was due "+fmtYMD(p.eta):"Parts due "+fmtYMD(p.eta)):"Waiting on parts"); }
+  return h("span",{class:"pill "+st},STATUS[st]+(r.mechanic&&st!=="open"?" · "+r.mechanic:""));
+}
+function card(r){
+  const sev=SEV[r.severity]||SEV.wait;
+  const photos=r.photos||[];
+  const st=r.status||"open";
+  return h("button",{class:"card",type:"button",style:"--sev:"+sev.color,onclick:()=>openDetail(r.id)},
+    h("span",{class:"stripe"}),
+    h("span",{class:"body"},
+      h("span",{class:"row"},
+        h("span",{class:"sevtag"},sev.label, r.category?h("i",{}," · "+r.category):null),
+        st==="open"?h("span",{class:"ago"},ago(r.createdAt)):statusPill(r)),
+      h("span",{class:"mach"}, r.machine||"Unnamed", r.unit?h("span",{class:"unit"},r.unit):null),
+      st==="parts"&&r.parts?.part?h("span",{class:"desc"},"Part: "+r.parts.part+(r.parts.vendor?" from "+r.parts.vendor:"")):(r.desc?h("span",{class:"desc"},r.desc):null),
+      photos.length?h("span",{class:"thumbs"},
+        ...photos.slice(0,4).map(id=>h("img",{src:photoUrl(id),alt:"",loading:"lazy",onerror:e=>e.target.style.visibility="hidden"})),
+        photos.length>4?h("span",{class:"more"},"+"+(photos.length-4)):null):null,
+      h("span",{class:"meta"},
+        r.site?h("span",{},r.site+(r.address?" · "+r.address:"")):null,
+        meter(r)?h("span",{class:"mono"},meter(r)):null,
+        r.source==="walkaround"?h("span",{},"From walkaround"):null,
+        r.by?personEl(r.by):null,
+        st!=="open"?h("span",{},ago(r.updatedAt||r.createdAt)):null)
+    ));
+}
+
+/* Equipment */
+function renderEquipment(){
+  const T=TYPES[eqType];
+  const list=units.filter(u=>u.type===eqType);
+  const feed=$("#feed");
+  const walked=list.filter(u=>{ const l=inspFor(u)[0]; return l&&sameDay(l.at); }).length;
+  const head=h("div",{class:"eq-head"},
+    h("p",{},list.length?[h("b",{},String(list.length))," "+(list.length===1?T.one.toLowerCase():T.label.toLowerCase())+" · walked around today: ",h("b",{},walked+" of "+list.length)]:""),
+    canWrite?h("button",{class:"btn ghost sm",type:"button",onclick:()=>openAdd(eqType)},"+ Add "+T.one.toLowerCase()):null);
+  if(!list.length){
+    feed.replaceChildren(head,emptyBox("No "+T.label.toLowerCase()+" on the list yet","Add each one once with its unit number. After that, operators pick it from a list, and every breakdown and walkaround lands on its history page."));
+    return;
+  }
+  const rows=sortUnits(list).sort((a,b)=>STATE[unitState(a)].rank-STATE[unitState(b)].rank);
+  feed.replaceChildren(head,...rows.map(unitCard));
+}
+function unitCard(u){
+  const s=unitState(u), S=STATE[s];
+  const rs=reportsFor(u), open=rs.filter(r=>(r.status||"open")!=="fixed").length;
+  const last=inspFor(u)[0];
+  return h("button",{class:"card",type:"button",style:"--sev:"+S.color,onclick:()=>openUnit(u.id)},
+    h("span",{class:"stripe"}),
+    h("span",{class:"body"},
+      h("span",{class:"row"},h("span",{class:"sevtag"},S.label,open?h("i",{}," · "+open+" open"):null),
+        h("span",{class:"ago",style:last&&sameDay(last.at)&&!(last.fails||[]).length?"color:var(--ok)":null},walkText(u))),
+      h("span",{class:"mach"},unitLabel(u),u.unit?h("span",{class:"unit"},u.unit):null),
+      h("span",{class:"meta"},
+        u.reading!==""&&u.reading!=null?h("span",{class:"mono"},fmtMeter(u.type,u.reading)):null,
+        h("span",{},rs.length+" breakdown"+(rs.length===1?"":"s")))
+    ));
+}
+
+/* Downtime */
+function renderDowntime(){
+  const R=monthRange(dtMonth), T=TYPES[eqType];
+  const groups=new Map();
+  for(const r of reports.filter(x=>typeOf(x)===eqType)){
+    const u=unitFor(r);
+    const key=u?u.id:"x:"+(String(r.unit||"")+"|"+String(r.machine||"")).toLowerCase();
+    if(!groups.has(key)) groups.set(key,{u,label:u?unitLabel(u):(r.machine||"Unnamed"),no:u?u.unit:r.unit,list:[]});
+    groups.get(key).list.push(r);
+  }
+  const rows=[...groups.values()].map(g=>{
+    const ms=downMs(g.list,R.start,R.end);
+    const n=g.list.filter(r=>{ const c=Date.parse(r.createdAt); return c>=R.start&&c<R.endM; }).length;
+    return {...g,ms,n};
+  }).filter(g=>g.ms>0||g.n>0).sort((a,b)=>b.ms-a.ms||b.n-a.n);
+  const total=rows.reduce((s,g)=>s+g.ms,0), unitsDown=rows.filter(g=>g.ms>0).length, brk=rows.reduce((s,g)=>s+g.n,0);
+  const max=Math.max(...rows.map(g=>g.ms),1);
+  const seg=h("div",{class:"seg duo",role:"group","aria-label":"Month"},...[0,1].map(b=>h("button",{type:"button","aria-pressed":String(dtMonth===b),onclick:()=>{dtMonth=b;render();}},b?"Last month":"This month")));
+  const kids=[seg,
+    h("div",{class:"dt-sum"},
+      h("div",{class:"stat"},h("b",{class:total?"red":null},total?fmtDur(total).replace(" days","d").replace(" hrs","h").replace(" hr","h"):"0"),h("small",{},"Down time")),
+      h("div",{class:"stat"},h("b",{},String(unitsDown)),h("small",{},"Units down")),
+      h("div",{class:"stat"},h("b",{},String(brk)),h("small",{},"Breakdowns")))];
+  if(!rows.length) kids.push(emptyBox("No breakdowns in "+R.label,"Nothing in "+T.label.toLowerCase()+" was reported this month. Down time shows up here as soon as a Down report comes in."));
+  else kids.push(h("div",{class:"dt-list"},...rows.map(g=>h(g.u?"button":"div",{class:"dt-row",type:g.u?"button":null,onclick:g.u?()=>openUnit(g.u.id):null},
+    h("div",{class:"dt-top"},h("b",{},g.label,g.no?h("span",{class:"unit"},g.no):null),h("span",{class:"v"},g.ms?fmtDur(g.ms):"0 down")),
+    h("div",{class:"dt-bar"},g.ms?h("i",{style:"width:"+(g.ms/max*100).toFixed(1)+"%"}):null),
+    h("div",{class:"dt-sub"},g.n+" breakdown"+(g.n===1?"":"s")+" reported in "+R.label)))));
+  kids.push(h("p",{class:"note"},"Down time counts from when a Down report is sent until it's marked Fixed. Needs attention and Can wait reports don't count."));
+  $("#feed").replaceChildren(...kids);
+}
+
+/* ---------- Sheets ---------- */
+function openSheet(el){ el.hidden=false; document.body.style.overflow="hidden"; }
+function closeSheet(el){ el.hidden=true; if(el.id==="detailSheet") openId=null; if(el.id==="unitSheet") unitOpen=null; if([...document.querySelectorAll(".sheet")].every(s=>s.hidden)) document.body.style.overflow=""; }
+document.querySelectorAll(".sheet").forEach(s=>s.addEventListener("click",e=>{ if(s.id==="gate") return; if(e.target===s||e.target.closest("[data-close]")) closeSheet(s); }));
+document.addEventListener("keydown",e=>{ if(e.key!=="Escape") return;
+  if(!$("#lightbox").hidden){ $("#lightbox").hidden=true; return; }
+  const open=[...document.querySelectorAll(".sheet")].filter(s=>!s.hidden&&s.id!=="gate"); if(open.length) closeSheet(open[open.length-1]); });
+$("#lightbox").addEventListener("click",()=>$("#lightbox").hidden=true);
+function zoom(src){ const lb=$("#lightbox"); lb.querySelector("img").src=src; lb.hidden=false; }
+xBtns(document);
+
+/* Shared unit picker */
+function fillPicker(sel,type,value){
+  const list=sortUnits(units.filter(u=>u.type===type));
+  sel.replaceChildren(h("option",{value:""},"Pick one…"),...list.map(u=>h("option",{value:u.id},(u.unit?u.unit+" · ":"")+unitLabel(u))),h("option",{value:"__new"},"Not on the list (add it)"));
+  sel.value=value||"";
+  return list.length;
+}
+async function ensureUnit(pick,type,nameIn,unitIn,reading,now){
+  if(pick&&pick!=="__new"){ const u=unitById(pick); return {u,id:pick,name:unitLabel(u),no:u.unit||""}; }
+  const nm=nameIn.trim(), no=unitIn.trim();
+  let id=null;
+  if(canWrite){
+    try{ const ref=await db.collection("units").add({type,name:nm,unit:no,createdAt:now,by:me||null,reading:reading||"",readingAt:reading?now:""}); id=ref.id; }catch(e){}
+  }
+  return {u:null,id,name:nm,no};
+}
+async function saveReading(id,reading,now){
+  if(!id||!reading) return;
+  try{ await db.doc("units/"+id).update({reading,readingAt:now}); }catch(e){}
+}
+
+/* ---------- Breakdown form ---------- */
+let fCats=[], fSev="", fFiles=[], fType="machine", fSite="", fPick="";
+function buildForm(){
+  const T=TYPES[fType], isM=T.meter==="hours";
+  $("#f-type").replaceChildren(...Object.entries(TYPES).map(([k,t])=>h("button",{type:"button","aria-pressed":String(fType===k),onclick:()=>{ if(fType!==k){ fType=k; fCats=[]; fPick=""; buildForm(); } }},t.one)));
+  const n=fillPicker($("#f-pick"),fType,fPick);
+  $("#f-pickwrap").hidden=!n;
+  $("#f-newunit").hidden=!!n&&fPick!=="__new";
+  $("#l-machine").textContent=n?"Make & model":T.one; $("#f-machine").placeholder=T.ph; $("#f-unit").placeholder=T.unit;
+  const u=fPick&&fPick!=="__new"?unitById(fPick):null;
+  $("#l-hours").textContent=isM?"Hour meter":"Odometer"; $("#f-hours").placeholder=isM?"4812":"184250"; $("#f-hours").step=isM?"0.1":"1";
+  $("#h-hours").textContent=u&&u.reading!==""&&u.reading!=null?"Last logged: "+fmtMeter(fType,u.reading):(isM?"Engine hours shown on the gauge":"Miles on the dash");
+  $("#f-cat").replaceChildren(...T.cats.map(c=>h("button",{type:"button",class:"chip","aria-pressed":String(fCats.includes(c)),onclick:()=>{fCats=fCats.includes(c)?fCats.filter(x=>x!==c):[...fCats,c];buildForm();}},c)));
+  $("#f-sev").replaceChildren(...Object.entries(SEV).map(([k,s])=>h("button",{type:"button",class:"sev",style:"--c:"+s.color,"aria-pressed":String(fSev===k),onclick:()=>{fSev=k;buildForm();}},h("span",{}),h("span",{},h("b",{},s.label),h("small",{},s.sub)))));
+  $("#f-site").replaceChildren(...["Shop","Field"].map(s=>h("button",{type:"button","aria-pressed":String(fSite===s),onclick:()=>{fSite=fSite===s?"":s;buildForm();}},s)));
+  $("#f-addrwrap").hidden=fSite!=="Field";
+  $("#addrs").replaceChildren(...[...new Set(reports.map(r=>r.address).filter(Boolean))].slice(0,15).map(a=>h("option",{value:a})));
+  const pick=$("#f-photos"); const add=pick.querySelector(".addph");
+  pick.replaceChildren(...fFiles.map((f,i)=>{ const b=h("button",{type:"button","aria-label":"Remove photo",onclick:()=>{URL.revokeObjectURL(f.url);fFiles.splice(i,1);buildForm();}}); b.innerHTML=X_ICON; return h("span",{class:"ph"},h("img",{src:f.url,alt:"Photo "+(i+1)}),b); }), add);
+  add.hidden = !assets || fFiles.length>=8;
+  $("#photoHint").textContent = assets ? "Shoot the leak, the code on the screen, the broken part. Up to 8." : "Photo uploads aren't turned on for your access level yet. You can still send the report.";
+}
+$("#f-pick").addEventListener("change",e=>{ fPick=e.target.value; buildForm(); });
+$("#f-file").addEventListener("change",e=>{
+  for(const f of e.target.files){ if(fFiles.length>=8) break; if(!f.type.startsWith("image/")&&f.type) continue; fFiles.push({file:f,url:URL.createObjectURL(f)}); }
+  e.target.value=""; buildForm();
+});
+function openReport(opts){
+  opts=opts||{};
+  $("#form").reset(); fCats=[]; fType=opts.type||eqType; fPick=opts.unitId||""; fSev=""; fFiles.forEach(f=>URL.revokeObjectURL(f.url)); fFiles=[];
+  fSite=["Shop","Field"].includes(load("bb-site"))?load("bb-site"):"";
+  $("#f-err").hidden=true; buildForm(); openSheet($("#formSheet"));
+}
+$("#fab").addEventListener("click",()=>openReport());
+function shrink(file){
+  return new Promise(res=>{
+    const url=URL.createObjectURL(file); const img=new Image();
+    img.onload=()=>{ const max=1600; let {naturalWidth:w,naturalHeight:hgt}=img; const k=Math.min(1,max/Math.max(w,hgt));
+      const c=document.createElement("canvas"); c.width=Math.round(w*k); c.height=Math.round(hgt*k);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+      c.toBlob(b=>res(b||file),"image/jpeg",0.82); };
+    img.onerror=()=>{ URL.revokeObjectURL(url); res(file); };
+    img.src=url;
+  });
+}
+function showErr(id,msg){ const e=$(id); e.textContent=msg||""; e.hidden=!msg; }
+function writeErr(err,fallback){
+  if(err instanceof Error&&err.message&&!err.code) return err.message;
+  if(err&&err.code==="invalid_argument") return "The crew code on this phone isn't working anymore. Tap Switch at the top and enter the current code.";
+  if(err&&err.code==="quota_exceeded") return "The board is full. Ask the board owner to delete old fixed reports.";
+  return fallback;
+}
+$("#form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const T=TYPES[fType], hasList=units.some(u=>u.type===fType);
+  if(hasList&&!fPick){ showErr("#f-err","Pick which "+T.one.toLowerCase()+" it is, or choose \"Not on the list\"."); $("#f-pick").focus(); return; }
+  if((!hasList||fPick==="__new")&&!$("#f-machine").value.trim()){ showErr("#f-err","Add which "+T.one.toLowerCase()+" it is, like \""+T.ph.replace(/^e\.g\. /,"")+"\"."); $("#f-machine").focus(); return; }
+  if(!fSev){ showErr("#f-err","Pick how bad it is so the mechanic knows what to hit first."); return; }
+  showErr("#f-err","");
+  const btn=$("#f-submit"); btn.disabled=true;
+  const photoIds=[];
+  try{
+    for(let i=0;i<fFiles.length;i++){
+      btn.textContent=`Uploading photo ${i+1} of ${fFiles.length}…`;
+      const blob=await shrink(fFiles[i].file);
+      try{ const r=await assets.upload(blob,{type:blob.type||"image/jpeg"}); photoIds.push(r.id); }
+      catch(err){
+        throw new Error({too_large:"That photo is too big. Try a smaller one.",unsupported_type:"That photo format isn't supported. Try a JPG or PNG.",quota_or_state:"Photo storage is full. Ask the board owner to clear out old fixed reports.",rate_limited:"Too many uploads at once. Wait a moment and try again."}[err&&err.code]||"A photo didn't upload. Check your signal and try again.");
+      }
+    }
+    btn.textContent="Sending…";
+    const now=new Date().toISOString(), rd=$("#f-hours").value.trim(), site=fSite;
+    const U=await ensureUnit(fPick,fType,$("#f-machine").value,$("#f-unit").value,rd,now);
+    const rep={machine:U.name,type:fType,unit:U.no,unitId:U.id||null,site,address:site==="Field"?$("#f-addr").value.trim():"",
+      hours:fType==="machine"?rd:"",miles:fType==="machine"?"":rd,
+      category:fCats.join(", "),categories:fCats.slice(),severity:fSev,desc:$("#f-desc").value.trim(),photos:photoIds,
+      status:"open",by:me||null,createdAt:now,updatedAt:now,log:[]};
+    await db.collection("reports").add(rep);
+    if(U.u) saveReading(U.id,rd,now);
+    store("bb-site",site||null);
+    fFiles.forEach(f=>URL.revokeObjectURL(f.url)); fFiles=[];
+    closeSheet($("#formSheet")); tab="open"; eqType=fType; store("bb-type",eqType);
+    if(!unitOpen){ view="board"; store("bb-view",view); }
+    render(); showText(rep,true);
+  }catch(err){
+    showErr("#f-err",writeErr(err,"The report didn't send. Check your signal and tap Send again."));
+  }finally{ btn.disabled=false; btn.textContent="Send to mechanic"; }
+});
+
+/* ---------- Walkaround ---------- */
+let wType="machine", wPick="", wFails={}, wSev="";
+function buildWalk(){
+  const T=TYPES[wType], isM=T.meter==="hours";
+  $("#w-type").replaceChildren(...Object.entries(TYPES).map(([k,t])=>h("button",{type:"button","aria-pressed":String(wType===k),onclick:()=>{ if(wType!==k){ wType=k; wPick=""; wFails={}; buildWalk(); } }},t.one)));
+  const n=fillPicker($("#w-pick"),wType,wPick);
+  $("#w-pickwrap").hidden=!n;
+  $("#w-newunit").hidden=!!n&&wPick!=="__new";
+  $("#l-wmachine").textContent=n?"Make & model":T.one; $("#w-machine").placeholder=T.ph; $("#w-unit").placeholder=T.unit;
+  const u=wPick&&wPick!=="__new"?unitById(wPick):null;
+  $("#l-wread").textContent=(isM?"Hour meter":"Odometer")+(u&&u.reading!==""&&u.reading!=null?" · last "+fmtMeter(wType,u.reading):"");
+  $("#w-read").placeholder=isM?"4812":"184250"; $("#w-read").step=isM?"0.1":"1";
+  $("#w-checks").replaceChildren(...T.checks.map(item=>{
+    const failed=Object.prototype.hasOwnProperty.call(wFails,item);
+    const kids=[h("div",{class:"chk-row"},h("span",{},item),
+      h("span",{class:"okfail"},
+        h("button",{type:"button",class:"ok","aria-pressed":String(!failed),"aria-label":item+": OK",onclick:()=>{ delete wFails[item]; buildWalk(); }},"OK"),
+        h("button",{type:"button",class:"fail","aria-pressed":String(failed),"aria-label":item+": Fail",onclick:()=>{ if(!failed){ wFails[item]=""; buildWalk(); } }},"Fail")))];
+    if(failed){ const inp=h("input",{type:"text",placeholder:"What's wrong? (optional)","aria-label":"What's wrong with "+item}); inp.value=wFails[item]; inp.addEventListener("input",()=>{ wFails[item]=inp.value; }); kids.push(inp); }
+    return h("div",{class:"chk"+(failed?" failed":"")},...kids);
+  }));
+  const nf=Object.keys(wFails).length;
+  $("#w-sevwrap").hidden=!nf;
+  $("#w-sev").replaceChildren(...Object.entries(SEV).map(([k,s])=>h("button",{type:"button",class:"sev",style:"--c:"+s.color,"aria-pressed":String(wSev===k),onclick:()=>{wSev=k;buildWalk();}},h("span",{}),h("span",{},h("b",{},s.label),h("small",{},s.sub)))));
+  $("#w-submit").textContent=nf?"Finish & report "+nf+" problem"+(nf>1?"s":""):"Finish · all OK";
+}
+$("#w-pick").addEventListener("change",e=>{ wPick=e.target.value; buildWalk(); });
+function openWalk(opts){
+  opts=opts||{};
+  $("#wform").reset(); wType=opts.type||eqType; wPick=opts.unitId||""; wFails={}; wSev="";
+  showErr("#w-err",""); buildWalk(); openSheet($("#walkSheet"));
+}
+$("#walkBtn").addEventListener("click",()=>openWalk());
+$("#wform").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const T=TYPES[wType], hasList=units.some(u=>u.type===wType);
+  if(hasList&&!wPick){ showErr("#w-err","Pick which "+T.one.toLowerCase()+" you walked around."); $("#w-pick").focus(); return; }
+  if((!hasList||wPick==="__new")&&!$("#w-machine").value.trim()){ showErr("#w-err","Add which "+T.one.toLowerCase()+" it is."); $("#w-machine").focus(); return; }
+  const fails=Object.entries(wFails).map(([item,note])=>({item,note:String(note||"").trim()}));
+  if(fails.length&&!wSev){ showErr("#w-err","Pick whether it can run so the mechanic knows how fast to get there."); return; }
+  showErr("#w-err","");
+  const btn=$("#w-submit"); btn.disabled=true; btn.textContent="Saving…";
+  try{
+    const now=new Date().toISOString(), rd=$("#w-read").value.trim();
+    const U=await ensureUnit(wPick,wType,$("#w-machine").value,$("#w-unit").value,rd,now);
+    let rep=null, reportId=null;
+    if(fails.length){
+      rep={machine:U.name,type:wType,unit:U.no,unitId:U.id||null,site:"",
+        hours:wType==="machine"?rd:"",miles:wType==="machine"?"":rd,
+        category:fails.map(f=>f.item).join(", "),categories:fails.map(f=>f.item),severity:wSev,
+        desc:"Failed walkaround: "+fails.map(f=>f.item+(f.note?" ("+f.note+")":"")).join("; "),
+        photos:[],status:"open",by:me||null,createdAt:now,updatedAt:now,log:[],source:"walkaround"};
+      const ref=await db.collection("reports").add(rep); reportId=ref.id;
+    }
+    await db.collection("inspections").add({type:wType,unitId:U.id||null,machine:U.name,unit:U.no,by:me||null,at:now,reading:rd,checked:T.checks.length,fails,reportId});
+    if(U.u) saveReading(U.id,rd,now);
+    closeSheet($("#walkSheet")); eqType=wType; store("bb-type",eqType); render();
+    if(rep) showText(rep,true); else toast("Walkaround logged. All OK.");
+  }catch(err){
+    showErr("#w-err",writeErr(err,"The walkaround didn't save. Check your signal and try again."));
+  }finally{ btn.disabled=false; buildWalk(); }
+});
+
+/* ---------- Add unit ---------- */
+let aType="machine";
+function buildAdd(){
+  const T=TYPES[aType], isM=T.meter==="hours";
+  $("#a-type").replaceChildren(...Object.entries(TYPES).map(([k,t])=>h("button",{type:"button","aria-pressed":String(aType===k),onclick:()=>{aType=k;buildAdd();}},t.one)));
+  $("#a-name").placeholder=T.ph; $("#a-unit").placeholder=T.unit;
+  $("#l-aread").textContent=(isM?"Hour meter":"Odometer")+" (optional)"; $("#a-read").step=isM?"0.1":"1";
+}
+function openAdd(type){ $("#aform").reset(); aType=type||eqType; showErr("#a-err",""); buildAdd(); openSheet($("#addSheet")); }
+$("#aform").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const nm=$("#a-name").value.trim(), no=$("#a-unit").value.trim(), rd=$("#a-read").value.trim();
+  if(!nm){ showErr("#a-err","Add the make and model, like \""+TYPES[aType].ph.replace(/^e\.g\. /,"")+"\"."); $("#a-name").focus(); return; }
+  if(no&&units.some(u=>u.type===aType&&String(u.unit||"").toLowerCase()===no.toLowerCase())){ showErr("#a-err","Unit "+no+" is already on the list."); return; }
+  const btn=$("#a-submit"); btn.disabled=true;
+  try{
+    const now=new Date().toISOString();
+    await db.collection("units").add({type:aType,name:nm,unit:no,createdAt:now,by:me||null,reading:rd,readingAt:rd?now:""});
+    closeSheet($("#addSheet")); eqType=aType; store("bb-type",eqType); render(); toast(nm+" added.");
+  }catch(err){ showErr("#a-err",writeErr(err,"Didn't save. Check your signal and try again.")); }
+  finally{ btn.disabled=false; }
+});
+
+/* ---------- Unit history ---------- */
+let unitEdit=false, unitDelArmed=false;
+function openUnit(id){ unitOpen=id; unitEdit=false; unitDelArmed=false; renderUnit(); openSheet($("#unitSheet")); }
+function renderUnit(){
+  const u=unitById(unitOpen), panel=$("#unitPanel");
+  if(!u){ closeSheet($("#unitSheet")); return; }
+  const T=TYPES[u.type]||TYPES.machine, S=STATE[unitState(u)];
+  const rs=reportsFor(u).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  const ins=inspFor(u);
+  const R=monthRange(0);
+  const dt=downMs(rs,R.start,R.end);
+  const last=ins[0];
+  const facts=[["Type",T.one],["Unit #",u.unit,"mono"],[T.meter==="hours"?"Hour meter":"Odometer",u.reading!==""&&u.reading!=null?fmtMeter(u.type,u.reading)+(u.readingAt?" · "+ago(u.readingAt):""):"","mono"],
+    ["Last walkaround",last?stamp(last.at)+" · "+name(last.by)+((last.fails||[]).length?" · "+last.fails.length+" failed":" · all OK"):"None yet"],
+    ["Breakdowns",String(rs.length)],["Down in "+R.label,dt?fmtDur(dt):"None"]].filter(f=>f[1]);
+  const kids=[
+    h("div",{class:"panel-head"},h("h2",{id:"uTitle"},unitLabel(u),u.unit?h("span",{class:"unit"},u.unit):null),h("button",{class:"x",type:"button","data-close":true,"aria-label":"Close"})),
+    h("div",{class:"d-sev",style:"--sev:"+S.color},h("span",{class:"sevtag"},S.label),h("span",{class:"ago"},walkText(u))),
+    h("dl",{class:"facts"},...facts.flatMap(([k,v,c])=>[h("dt",{},k),h("dd",{class:c||null},v)])),
+    canWrite?h("div",{class:"two-acts"},
+      h("button",{type:"button",class:"btn ghost",onclick:()=>openWalk({type:u.type,unitId:u.id})},"Start walkaround"),
+      h("button",{type:"button",class:"btn ghost",style:"border-color:var(--hivis);color:var(--hivis)",onclick:()=>openReport({type:u.type,unitId:u.id})},"Report breakdown")):null,
+    h("div",{class:"sec-h"},"Breakdown history"),
+    rs.length?h("ul",{class:"hist"},...rs.map(r=>{ const sv=SEV[r.severity]||SEV.wait; return h("li",{},h("button",{type:"button",class:"it",style:"--sev:"+sv.color,onclick:()=>openDetail(r.id)},
+      h("span",{class:"t"},h("b",{},sv.label+(r.category?" · "+r.category:"")),statusPill(r)),
+      h("span",{class:"s"},stamp(r.createdAt)+" · "+name(r.by)+(r.source==="walkaround"?" · from walkaround":"")))); })):
+      h("p",{class:"note"},"No breakdowns reported on this one."),
+    h("div",{class:"sec-h"},"Walkarounds"),
+    ins.length?h("ul",{class:"hist"},...ins.slice(0,15).map(i=>{ const nf=(i.fails||[]).length; return h("li",{},h("div",{class:"it",style:"--sev:"+(nf?"var(--down)":"var(--ok)")},
+      h("span",{class:"t"},h("b",{},nf?nf+" failed: "+i.fails.map(f=>f.item).join(", "):"All OK"),h("span",{class:"ago"},ago(i.at))),
+      h("span",{class:"s"},stamp(i.at)+" · "+name(i.by)+(i.reading?" · "+fmtMeter(u.type,i.reading):"")),
+      i.reportId?h("button",{type:"button",class:"linkbtn",style:"justify-self:start;margin-top:4px",onclick:()=>openDetail(i.reportId)},"Open the report"):null)); })):
+      h("p",{class:"note"},"No walkarounds logged yet.")
+  ];
+  if(isEditor){
+    kids.push(h("div",{class:"sec-h"},"Details"));
+    if(unitEdit){
+      const n=h("input",{type:"text",id:"u-name","aria-label":"Make and model"}); n.value=u.name||"";
+      const no=h("input",{type:"text",id:"u-no",class:"mono-in","aria-label":"Unit number"}); no.value=u.unit||"";
+      kids.push(h("div",{class:"partsf"},h("label",{class:"legend",for:"u-name"},"Make & model"),n,h("label",{class:"legend",for:"u-no"},"Unit / fleet #"),no,
+        h("div",{class:"two-acts",style:"margin-top:4px"},h("button",{type:"button",class:"btn ghost",onclick:()=>{unitEdit=false;renderUnit();}},"Cancel"),
+          h("button",{type:"button",class:"btn ghost",style:"border-color:var(--hivis);color:var(--hivis)",onclick:()=>saveUnit(u,n.value,no.value)},"Save"))));
+    } else kids.push(h("button",{type:"button",class:"btn ghost",onclick:()=>{unitEdit=true;renderUnit();}},"Edit name or unit #"));
+    kids.push(h("button",{type:"button",class:"danger"+(unitDelArmed?" armed":""),onclick:()=>delUnit(u)},unitDelArmed?"Tap again to remove from the list":"Remove from equipment list"));
+  }
+  panel.replaceChildren(...kids); xBtns(panel);
+}
+async function saveUnit(u,nm,no){
+  nm=nm.trim(); no=no.trim(); if(!nm){ toast("Add the make and model."); return; }
+  try{ await db.doc("units/"+u.id).update({name:nm,unit:no}); unitEdit=false; toast("Saved."); }catch(e){ toast("Didn't save. Try again."); }
+}
+async function delUnit(u){
+  if(!unitDelArmed){ unitDelArmed=true; renderUnit(); setTimeout(()=>{ unitDelArmed=false; if(unitOpen===u.id) renderUnit(); },4000); return; }
+  try{ await db.doc("units/"+u.id).delete(); closeSheet($("#unitSheet")); toast(unitLabel(u)+" removed. Its old reports stay on the board."); }catch(e){ toast("Couldn't remove it. Try again."); }
+}
+
+/* ---------- Report detail ---------- */
+function openDetail(id){ openId=id; pickShop=null; pickParts=null; renderDetail(); openSheet($("#detailSheet")); }
+let deleteArmed=false, pickShop=null, pickParts=null;
+function renderDetail(){
+  const r=reports.find(x=>x.id===openId); const panel=$("#detailPanel");
+  if(!r){ closeSheet($("#detailSheet")); return; }
+  const sev=SEV[r.severity]||SEV.wait; const st=r.status||"open"; const u=unitFor(r); const p=r.parts||{};
+  const keep={}; ["d-note","p-part","p-vendor","p-eta"].forEach(id=>{ const el=panel.querySelector("#"+id); if(el) keep[id]=el.value; });
+  const facts=[[TYPES[typeOf(r)].one,r.machine],["Unit #",r.unit,"mono"],["Job site",r.site],[typeOf(r)==="machine"?"Hour meter":"Odometer",meter(r),"mono"],["Problem area",r.category],["Mechanic",r.mechanic],
+    ["Part",st==="parts"||st==="fixed"?p.part:""],["Vendor",st==="parts"||st==="fixed"?p.vendor:""],["Parts due",st==="parts"&&p.eta?fmtYMD(p.eta)+(isLate(p)?" (late)":""):""],
+    ["Reported by",r.by?name(r.by):""],["Reported",stamp(r.createdAt)],["Fixed",st==="fixed"&&r.fixedAt?stamp(r.fixedAt):""]].filter(f=>f[1]);
+  let partsForm=null;
+  if(pickParts===r.id){
+    const a=h("input",{type:"text",id:"p-part",placeholder:"e.g. Boom cylinder seal kit"}); a.value=keep["p-part"]??p.part??"";
+    const v=h("input",{type:"text",id:"p-vendor",placeholder:"e.g. Foley Equipment"}); v.value=keep["p-vendor"]??p.vendor??"";
+    const d=h("input",{type:"date",id:"p-eta"}); d.value=keep["p-eta"]??p.eta??"";
+    partsForm=h("div",{class:"partsf"},
+      h("label",{class:"legend",for:"p-part"},"Part needed"),a,h("label",{class:"legend",for:"p-vendor"},"Ordered from"),v,h("label",{class:"legend",for:"p-eta"},"Expected"),d,
+      h("button",{type:"button",class:"btn ghost",style:"border-color:var(--limp);color:var(--limp)",onclick:()=>setStatus(r,"parts",null,{part:a.value.trim(),vendor:v.value.trim(),eta:d.value})},st==="parts"?"Update parts info":"Mark waiting on parts"));
+  }
+  panel.replaceChildren(
+    h("div",{class:"panel-head"},h("h2",{id:"dTitle"},r.machine||"Unnamed", r.unit?h("span",{class:"unit"},r.unit):null),h("button",{class:"x",type:"button","data-close":true,"aria-label":"Close"})),
+    h("div",{class:"d-sev",style:"--sev:"+sev.color},h("span",{class:"sevtag"},sev.label,h("i",{}," · "+sev.sub)),statusPill(r)),
+    (r.photos||[]).length?h("div",{class:"gallery"},...r.photos.map((pid,i)=>h("button",{type:"button","aria-label":"Open photo "+(i+1),onclick:()=>zoom(photoUrl(pid))},h("img",{src:photoUrl(pid),alt:"",loading:"lazy",onerror:e=>e.target.style.visibility="hidden"})))):null,
+    r.desc?h("p",{class:"d-desc"},r.desc):null,
+    h("dl",{class:"facts"},...facts.flatMap(([k,v,c])=>[h("dt",{},k),h("dd",{class:c||null},v)])),
+    r.address?h("div",{class:"callcard"},h("span",{class:"legend"},"Job address"),h("span",{style:"font-size:17px;user-select:all;overflow-wrap:anywhere"},r.address),
+      h("div",{class:"acts"},
+        h("button",{type:"button",class:"btn ghost full",style:"border-color:var(--hivis);color:var(--hivis)",onclick:e=>copy(r.address,e.currentTarget,"Copy address")},"Copy address"),
+        h("a",{class:"btn ghost",style:"text-align:center;text-decoration:none",target:"_blank",rel:"noopener",href:"https://maps.apple.com/?q="+encodeURIComponent(r.address)},"Apple Maps"),
+        h("a",{class:"btn ghost",style:"text-align:center;text-decoration:none",target:"_blank",rel:"noopener",href:"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(r.address)},"Google Maps"))):null,
+    u&&unitOpen!==u.id?h("button",{type:"button",class:"btn ghost textbtn",onclick:()=>{ closeSheet($("#detailSheet")); openUnit(u.id); }},"See "+(u.unit||unitLabel(u))+" history"):null,
+    contact.phone?h("button",{type:"button",class:"btn ghost textbtn",onclick:()=>showText(r,false)},"Text "+(contact.name||"the mechanic")+" about this"):null,
+    h("div",{class:"sec-h"},"Status"),
+    h("div",{class:"status-btns",role:"group","aria-label":"Set status"},...Object.entries(STATUS).map(([k,label])=>h("button",{type:"button","data-s":k,"aria-pressed":String(st===k),disabled:!canWrite||null,onclick:()=>{
+      if(k==="shop"&&contact.mechanics.length){ if(st!=="shop"){ pickParts=null; pickShop=pickShop===r.id?null:r.id; renderDetail(); } }
+      else if(k==="parts"){ pickShop=null; pickParts=pickParts===r.id?null:r.id; renderDetail(); }
+      else setStatus(r,k);
+    }},label))),
+    (st==="shop"||pickShop===r.id)&&contact.mechanics.length?h("div",{class:"mechs"},h("span",{class:"legend"},st==="shop"?"Who's on it?":"Who's taking it? Tap your name"),
+      h("div",{class:"chips",role:"group","aria-label":"Mechanic"},...contact.mechanics.map(m=>h("button",{type:"button",class:"chip","aria-pressed":String(st==="shop"&&r.mechanic===m),disabled:!canWrite||null,onclick:()=>setStatus(r,"shop",m)},m)))):null,
+    st==="parts"&&pickParts!==r.id&&canWrite?h("button",{type:"button",class:"linkbtn",style:"margin-top:10px",onclick:()=>{pickParts=r.id;renderDetail();}},"Edit parts info"):null,
+    partsForm,
+    h("div",{class:"sec-h"},"Mechanic notes"),
+    (r.log||[]).length?h("ul",{class:"log"},...r.log.map(l=>h("li",{},avatar(l.by)?h("img",{src:avatar(l.by),alt:""}):h("span",{}),
+      h("div",{},h("div",{class:"lt"},h("b",{},name(l.by))," · "+stamp(l.at)),h("p",{},logText(l)))))):
+      h("p",{style:"color:var(--muted);margin:0"},"No notes yet. What was found, what was replaced."),
+    canWrite?h("div",{class:"note-row"},h("textarea",{id:"d-note",placeholder:"Add a note"}),h("button",{class:"btn ghost",type:"button",onclick:()=>addNote(r)},"Add")):null,
+    isEditor?h("button",{type:"button",class:"danger"+(deleteArmed?" armed":""),onclick:()=>delReport(r)},deleteArmed?"Tap again to delete for good":"Delete report"):null
+  );
+  xBtns(panel);
+  const n=panel.querySelector("#d-note"); if(n&&keep["d-note"]) n.value=keep["d-note"];
+}
+function logText(l){
+  if(l.kind!=="status") return l.text;
+  let t;
+  if(l.status==="shop"&&l.mechanic) t=l.mechanic+" took it";
+  else if(l.status==="parts") t="Waiting on "+(l.part||"parts")+(l.vendor?" from "+l.vendor:"")+(l.eta?", due "+fmtYMD(l.eta):"");
+  else t="Marked "+(STATUS[l.status]||l.status).toLowerCase();
+  return t+(l.text?": "+l.text:"");
+}
+let writing=false;
+async function patch(r,fields){
+  if(writing) return false; writing=true;
+  try{ await db.doc("reports/"+r.id).update({...fields,updatedAt:new Date().toISOString()}); return true; }
+  catch(err){ toast(err&&err.code==="invalid_argument"?"Your access only lets you view the board.":"Didn't save. Check your signal and try again."); return false; }
+  finally{ writing=false; }
+}
+async function setStatus(r,s,mech,parts){
+  const cur=r.status||"open";
+  if(cur===s && !parts && (s!=="shop"||!mech||r.mechanic===mech)) return;
+  const now=new Date().toISOString();
+  const note=$("#d-note")?.value.trim()||"";
+  const entry={by:me||null,at:now,kind:"status",status:s,text:note};
+  if(mech) entry.mechanic=mech;
+  if(parts){ entry.part=parts.part; entry.vendor=parts.vendor; entry.eta=parts.eta; }
+  const fields={status:s,log:[...(r.log||[]),entry],fixedAt:s==="fixed"?now:null};
+  if(mech) fields.mechanic=mech; else if(s==="open") fields.mechanic=null;
+  if(parts) fields.parts=parts;
+  const ok=await patch(r,fields);
+  if(ok){ pickShop=null; pickParts=null; if($("#d-note")) $("#d-note").value="";
+    toast(s==="fixed"?"Marked fixed.":s==="shop"?(mech?mech+" is on it.":"Marked as being worked on."):s==="parts"?(cur==="parts"?"Parts info updated.":"Marked waiting on parts."):"Reopened."); }
+}
+async function addNote(r){
+  const el=$("#d-note"); const text=el.value.trim(); if(!text){ el.focus(); return; }
+  const ok=await patch(r,{log:[...(r.log||[]),{by:me||null,at:new Date().toISOString(),kind:"note",text}]});
+  if(ok) el.value="";
+}
+async function delReport(r){
+  if(!deleteArmed){ deleteArmed=true; renderDetail(); setTimeout(()=>{deleteArmed=false; if(openId===r.id) renderDetail();},4000); return; }
+  deleteArmed=false;
+  try{
+    await db.doc("reports/"+r.id).delete();
+    if(assets) for(const pid of r.photos||[]){ try{ await assets.delete(pid); }catch(e){} }
+    closeSheet($("#detailSheet")); toast("Report deleted.");
+  }catch(e){ toast("Couldn't delete. Try again."); }
+}
+
+/* ---------- Text the mechanic ---------- */
+function digits(p){ return String(p||"").replace(/[^\d+]/g,""); }
+function fmtPhone(p){ const d=digits(p).replace(/^\+?1(?=\d{10}$)/,""); return /^\d{10}$/.test(d)?`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`:String(p||""); }
+function smsBody(r){
+  const sev=SEV[r.severity]||SEV.wait;
+  const head=`BREAKDOWN – ${sev.label.toUpperCase()}: ${r.machine||"Unit"}${r.unit?" #"+r.unit:""}`;
+  const where=[r.site==="Shop"?"in the shop":r.site==="Field"?"in the field"+(r.address?" at "+r.address:""):r.site?"at "+r.site:"",meter(r)].filter(Boolean).join(", ");
+  let d=(r.desc||"").replace(/\s+/g," ").trim(); if(d.length>160) d=d.slice(0,157)+"…";
+  const n=(r.photos||[]).length;
+  return [head+(where?" "+where:"")+".", r.source==="walkaround"?"":(r.category?r.category+".":""), d, (n?n+" photo"+(n>1?"s":"")+" on":"Details on")+" the Breakdown Board."].filter(Boolean).join(" ");
+}
+async function copy(text,btn,label){
+  try{ await navigator.clipboard.writeText(text); btn.textContent="Copied"; setTimeout(()=>btn.textContent=label,1600); }
+  catch(e){ toast("Press and hold the text to copy it."); }
+}
+function showText(r,justSent){
+  const panel=$("#textPanel");
+  const kids=[h("div",{class:"panel-head"},h("h2",{id:"tTitle"},justSent?"Report sent":"Text the mechanic"),h("button",{class:"x",type:"button","data-close":true,"aria-label":"Close"}))];
+  if(justSent) kids.push(h("div",{class:"sent-top"},h("span",{class:"ok"},"On the board"),h("p",{},contact.phone?"Send a quick text so the mechanic sees it now.":"It's on the board for the mechanic.")));
+  if(contact.phone){
+    const body=smsBody(r); const num=digits(contact.phone);
+    const ta=h("textarea",{class:"msg",id:"t-msg","aria-label":"Message to send"}); ta.value=body;
+    const lhref=t=>"sms:"+num+"?&body="+encodeURIComponent(t);
+    kids.push(h("div",{class:"callcard"},
+      h("div",{class:"who-m"},h("b",{},contact.name||"Mechanic"),h("span",{class:"phone"},fmtPhone(contact.phone))),
+      ta, h("div",{class:"acts"},
+        h("a",{class:"btn sms full",href:lhref(body),onclick:e=>{e.currentTarget.href=lhref(ta.value);}},"Open Messages"),
+        h("button",{type:"button",class:"btn ghost",onclick:e=>copy(ta.value,e.currentTarget,"Copy message")},"Copy message"),
+        h("button",{type:"button",class:"btn ghost",onclick:e=>copy(num,e.currentTarget,"Copy number")},"Copy number")),
+      h("p",{class:"small"},"Open Messages opens your texts with this message ready. If it doesn't, copy the message and number and text it yourself.")));
+  } else if(isEditor){
+    kids.push(h("div",{class:"callcard"},h("p",{style:"margin:0"},"Add the mechanic's cell number and this screen will give operators a ready-to-send text after every report."),
+      h("button",{type:"button",class:"btn ghost",onclick:()=>{closeSheet($("#textSheet"));openSettings();}},"Add mechanic contact")));
+  }
+  kids.push(h("button",{type:"button",class:"btn ghost textbtn","data-close":true},"Done"));
+  panel.replaceChildren(...kids); xBtns(panel);
+  openSheet($("#textSheet"));
+}
+function openSettings(){
+  $("#s-mechs").value=(contact.mechanics||[]).join(", ");
+  $("#s-name").value=contact.name||""; $("#s-phone").value=contact.phone?fmtPhone(contact.phone):"";
+  showErr("#s-err",""); openSheet($("#setSheet"));
+}
+$("#setForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const phone=$("#s-phone").value.trim(), nm=$("#s-name").value.trim();
+  const d=digits(phone).replace(/^\+/,"");
+  if(phone && (d.length<10||d.length>15)){ showErr("#s-err","That number looks short. Use the full 10-digit cell number, like 816-555-0142."); return; }
+  const btn=$("#s-save"); btn.disabled=true; btn.textContent="Saving…";
+  const mechs=[...new Set($("#s-mechs").value.split(",").map(s=>s.trim()).filter(Boolean))].slice(0,20);
+  const newCrew=$("#s-crew").value.trim();
+  if(newCrew&&newCrew.length<4){ showErr("#s-err","Make the crew code at least 4 characters."); btn.disabled=false; btn.textContent="Save settings"; return; }
+  try{
+    await db.doc("config/notify").set({name:nm,phone:phone?digits(phone):"",mechanics:mechs});
+    if(newCrew) await sb("/rest/v1/rpc/set_code",{method:"POST",headers:JSONH,body:JSON.stringify({which:"crew",new_code:newCrew})});
+    $("#s-crew").value=""; closeSheet($("#setSheet")); toast(newCrew?"Saved. New crew code: "+newCrew:"Shop settings saved.");
+  }
+  catch(x){ showErr("#s-err",x&&x.code==="invalid_argument"?"Only the boss code can change shop settings.":"Didn't save. Check your signal and try again."); }
+  finally{ btn.disabled=false; btn.textContent="Save settings"; }
+});
+
+/* ---------- Tabs + boot ---------- */
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{ tab=t.dataset.tab; store("bb-tab",tab); render(); }));
+{ const s=load("bb-tab"); if(STATUS[s]) tab=s; const t=load("bb-type"); if(TYPES[t]) eqType=t; const v=load("bb-view"); view=VIEWS[v]?v:"board"; }
+renderViews(); renderTypes(); $("#tabs").hidden=view!=="board";
+document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",String(t.dataset.tab===tab)));
+
+const GEAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>';
+function showGate(msg){
+  $("#g-name").value=load("bb-name"); $("#g-code").value="";
+  showErr("#g-err",msg||""); $("#bar").hidden=true;
+  $("#feed").replaceChildren(emptyBox("Enter the crew code","The board opens once you're signed in."));
+  openSheet($("#gate"));
+}
+function start(level){
+  isEditor=level==="boss"; canWrite=true; store("bb-level",level);
+  closeSheet($("#gate")); $("#bar").hidden=false;
+  const who=[h("span",{},me)," ",h("button",{type:"button",class:"whobtn",onclick:()=>{ store("bb-code",null); crewCode=""; showGate(); }},"Switch")];
+  if(isEditor){ const g=h("button",{type:"button",class:"gear",onclick:openSettings},"Shop settings"); g.insertAdjacentHTML("afterbegin",GEAR); who.push(g); }
+  $("#who").replaceChildren(...who);
+  loadAll();
+}
+$("#gform").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const nm=$("#g-name").value.trim(), code=$("#g-code").value.trim();
+  if(!nm){ showErr("#g-err","Add your name so the mechanic knows who sent it."); $("#g-name").focus(); return; }
+  if(!code){ showErr("#g-err","Enter the crew code from the shop."); $("#g-code").focus(); return; }
+  const btn=$("#g-go"); btn.disabled=true; btn.textContent="Checking…";
+  try{
+    crewCode=code; const lv=await accessLevel();
+    if(!lv){ crewCode=""; showErr("#g-err","That code didn't work. Check it with the shop."); return; }
+    me=nm; store("bb-name",nm); store("bb-code",code); start(lv);
+  }catch(x){ crewCode=""; showErr("#g-err","Can't reach the board. Check your signal and try again."); }
+  finally{ btn.disabled=false; btn.textContent="Open the board"; }
+});
+async function boot(){
+  const nm=load("bb-name"), code=load("bb-code");
+  if(!nm||!code){ showGate(); return; }
+  me=nm; crewCode=code;
+  try{ const lv=await accessLevel(); if(!lv){ store("bb-code",null); crewCode=""; showGate("The crew code changed. Ask the shop for the new one."); return; } start(lv); }
+  catch(e){ start(load("bb-level")||"crew"); }
+}
+setInterval(()=>{ if(!document.hidden) loadAll(); },15000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) loadAll(); });
+boot();
+})();
+</script>
+</body>
+</html>
