@@ -20,6 +20,8 @@
   a.go{display:block;text-align:center;text-decoration:none;background:var(--hivis);color:var(--ink);border-radius:12px;padding:16px;
     font:700 22px "Arial Narrow",system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase}
   .muted{color:var(--muted);font-size:14px;margin:0}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row button{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;color:var(--fg);font:600 16px system-ui,-apple-system,sans-serif}
 </style>
 </head>
 <body>
@@ -32,6 +34,7 @@
     <p class="msg" id="msg"></p>
   </div>
   <a class="go" id="go" href="#" hidden>Open Messages</a>
+  <div class="row" id="copies" hidden><button type="button" id="cm">Copy message</button><button type="button" id="cn">Copy number</button></div>
   <p class="muted" id="note">Opening your texts…</p>
 </main>
 <script>
@@ -49,7 +52,13 @@
   document.getElementById("msg").textContent = body;
   document.getElementById("card").hidden = false;
   var go = document.getElementById("go"); go.href = href; go.hidden = false;
-  note.textContent = "If your texts didn't open on their own, tap the button above.";
+  document.getElementById("copies").hidden = false;
+  function cp(t,b,l){ (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ b.textContent="Copied"; setTimeout(function(){b.textContent=l;},1500); },function(){ b.textContent="Press and hold to copy"; }); }
+  document.getElementById("cm").onclick=function(){ cp(body,this,"Copy message"); };
+  document.getElementById("cn").onclick=function(){ cp(to,this,"Copy number"); };
+  note.textContent = ios
+    ? "If Messages doesn't open, this page is probably inside another app's browser. Tap the Safari/compass icon or the ⋯ menu and pick Open in Safari, then tap Open Messages again. Or copy the message and number."
+    : "If your texts didn't open, copy the message and number and send it yourself.";
   setTimeout(function(){ location.href = href; }, 300);
 })();
 </script>
