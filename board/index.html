@@ -504,6 +504,8 @@ async function loadAll(){
 }
 let eqType="machine", view="board", tab="open", openId=null, unitOpen=null, dtMonth=0;
 const $ = s => document.querySelector(s);
+/* Skip empty pieces (null/false) instead of printing them as text */
+{ const rc=Element.prototype.replaceChildren; Element.prototype.replaceChildren=function(...k){ return rc.apply(this,k.flat().filter(x=>x!=null&&x!==false)); }; }
 
 /* ---------- Helpers ---------- */
 function h(tag, attrs, ...kids){
