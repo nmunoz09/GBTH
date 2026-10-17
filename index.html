@@ -41,9 +41,9 @@
   var to = (p.get("to")||"").replace(/[^\d+]/g,"");
   var body = p.get("body")||"";
   var note = document.getElementById("note");
-  if(!to){ note.textContent = "This page opens a text to the mechanic. Use the button on the Breakdown Board to get here."; return; }
+  if(!to){ note.textContent = "Nothing to send yet. This page only works when you tap Open Messages on a report in the Breakdown Board."; return; }
   var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
-  var href = "sms:" + to + (body ? (ios ? "&" : "?") + "body=" + encodeURIComponent(body) : "");
+  var href = "sms:" + to + (body ? "?&body=" + encodeURIComponent(body) : "");
   var d = to.replace(/^\+?1(?=\d{10}$)/,"");
   document.getElementById("to").textContent = /^\d{10}$/.test(d) ? "("+d.slice(0,3)+") "+d.slice(3,6)+"-"+d.slice(6) : to;
   document.getElementById("msg").textContent = body;
