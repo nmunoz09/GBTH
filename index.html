@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Text the Mechanic</title>
+<style>
+  :root{--bg:#16140f;--panel:#201d16;--line:#3a3428;--fg:#ede7d9;--muted:#a59c88;--hivis:#f2b705;--ink:#1b1504;color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:max(24px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 32px max(16px,env(safe-area-inset-left))}
+  main{max-width:520px;margin:0 auto;display:grid;gap:16px}
+  h1{margin:0;font:700 28px/1.1 "Arial Narrow",system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase}
+  h1 span{color:var(--hivis)}
+  .hazard{height:6px;border-radius:2px;background:repeating-linear-gradient(-45deg,var(--hivis) 0 10px,var(--bg) 10px 20px)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:10px}
+  .to{font:500 20px ui-monospace,Menlo,monospace;color:var(--hivis)}
+  .msg{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+  a.go{display:block;text-align:center;text-decoration:none;background:var(--hivis);color:var(--ink);border-radius:12px;padding:16px;
+    font:700 22px "Arial Narrow",system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase}
+  .muted{color:var(--muted);font-size:14px;margin:0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Breakdown <span>Board</span></h1>
+  <div class="hazard"></div>
+  <div class="card" id="card" hidden>
+    <div class="muted">Text to</div>
+    <div class="to" id="to"></div>
+    <p class="msg" id="msg"></p>
+  </div>
+  <a class="go" id="go" href="#" hidden>Open Messages</a>
+  <p class="muted" id="note">Opening your texts…</p>
+</main>
+<script>
+(function(){
+  // Data rides in the #fragment, which browsers never send to the server.
+  var p = new URLSearchParams(location.hash.slice(1));
+  var to = (p.get("to")||"").replace(/[^\d+]/g,"");
+  var body = p.get("body")||"";
+  var note = document.getElementById("note");
+  if(!to){ note.textContent = "This page opens a text to the mechanic. Use the button on the Breakdown Board to get here."; return; }
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  var href = "sms:" + to + (body ? (ios ? "&" : "?") + "body=" + encodeURIComponent(body) : "");
+  var d = to.replace(/^\+?1(?=\d{10}$)/,"");
+  document.getElementById("to").textContent = /^\d{10}$/.test(d) ? "("+d.slice(0,3)+") "+d.slice(3,6)+"-"+d.slice(6) : to;
+  document.getElementById("msg").textContent = body;
+  document.getElementById("card").hidden = false;
+  var go = document.getElementById("go"); go.href = href; go.hidden = false;
+  note.textContent = "If your texts didn't open on their own, tap the button above.";
+  setTimeout(function(){ location.href = href; }, 300);
+})();
+</script>
+</body>
+</html>
